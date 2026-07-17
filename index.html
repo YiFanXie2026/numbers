@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>猜数字游戏</title>
+    <style>
+        body {
+            background: #0f172a;
+            font-family: system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 16px;
+            color: #e2e8f0;
+        }
+        .container {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 28px 20px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 1.8rem;
+            margin: 0 0 4px;
+            color: #f1f5f9;
+        }
+        .subtitle {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-bottom: 24px;
+        }
+        .phase {
+            display: none;
+        }
+        .phase.active {
+            display: block;
+        }
+        label {
+            display: block;
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-bottom: 8px;
+            text-align: left;
+        }
+        .input-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .input-row input {
+            flex: 1;
+            padding: 12px;
+            background: #0f172a;
+            border: 2px solid #334155;
+            border-radius: 10px;
+            color: #e2e8f0;
+            font-size: 1rem;
+            text-align: center;
+            outline: none;
+        }
+        .input-row input:focus {
+            border-color: #6366f1;
+        }
+        .sep {
+            font-size: 1.2rem;
+            color: #94a3b8;
+        }
+        button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 6px;
+        }
+        button.outline {
+            background: transparent;
+            border: 2px solid #334155;
+            color: #e2e8f0;
+        }
+        .range-badge {
+            background: rgba(99,102,241,0.2);
+            color: #a5b4fc;
+            padding: 6px 14px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+        }
+        .guess-area {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .guess-area input {
+            flex: 1;
+            padding: 12px;
+            background: #0f172a;
+            border: 2px solid #334155;
+            border-radius: 10px;
+            color: #e2e8f0;
+            font-size: 1.2rem;
+            text-align: center;
+            outline: none;
+        }
+        .guess-area input:focus {
+            border-color: #6366f1;
+        }
+        .feedback {
+            font-weight: bold;
+            margin: 12px 0;
+            min-height: 24px;
+        }
+        .history {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+            margin: 8px 0;
+        }
+        .history span {
+            background: #2d3a4f;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        .result-emoji {
+            font-size: 56px;
+            display: block;
+            margin-bottom: 8px;
+        }
+        .grade {
+            font-size: 2.8rem;
+            font-weight: 900;
+        }
+        .grade-A { color: #22c55e; }
+        .grade-B { color: #3b82f6; }
+        .grade-C { color: #f59e0b; }
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        .btn-group button {
+            flex: 1;
+        }
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            border: 1px solid #ef4444;
+            color: #f87171;
+            padding: 10px 24px;
+            border-radius: 30px;
+            font-weight: bold;
+            z-index: 100;
+            display: none;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 猜数字游戏</h1>
+        <p class="subtitle">自选范围 · 挑战直觉</p>
+
+        <!-- 设置范围 -->
+        <div class="phase active" id="phase-setup">
+            <label>📐 设置数字范围</label>
+            <div class="input-row">
+                <input type="number" id="rangeStart" placeholder="最小值" value="1" inputmode="numeric" enterkeyhint="next">
+                <span class="sep">～</span>
+                <input type="number" id="rangeEnd" placeholder="最大值" value="100" inputmode="numeric" enterkeyhint="done">
+            </div>
+            <button onclick="startGame()">🚀 开始游戏</button>
+        </div>
+
+        <!-- 猜数字 -->
+        <div class="phase" id="phase-guess">
+            <div class="range-badge" id="rangeDisplay"></div>
+            <div class="guess-area">
+                <input type="number" id="guessInput" placeholder="输入猜测" inputmode="numeric" enterkeyhint="done">
+                <button style="width:auto; padding:12px 18px;" onclick="makeGuess()">猜</button>
+            </div>
+            <div class="feedback" id="feedback"></div>
+            <div>已猜次数：<strong id="attemptCount">0</strong></div>
+            <div class="history" id="guessHistory"></div>
+            <button class="outline" onclick="resetToSetup()">↩ 重新设置范围</button>
+        </div>
+
+        <!-- 结果 -->
+        <div class="phase" id="phase-result">
+            <span class="result-emoji" id="resultEmoji">🏆</span>
+            <div class="grade" id="resultGrade">A</div>
+            <p id="resultDetail"></p>
+            <p style="color:#94a3b8;" id="resultSecret"></p>
+            <div class="btn-group">
+                <button onclick="playAgain()">🔁 再来一局</button>
+                <button class="outline" onclick="resetToSetup()">⚙️ 更换范围</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // 游戏状态
+        let secretNumber, rangeLow, rangeHigh, attempts, guessList = [];
+
+        const $ = id => document.getElementById(id);
+        const setupPhase = $('phase-setup');
+        const guessPhase = $('phase-guess');
+        const resultPhase = $('phase-result');
+        const toast = $('toast');
+        const rangeStart = $('rangeStart');
+        const rangeEnd = $('rangeEnd');
+        const guessInput = $('guessInput');
+
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.style.display = 'block';
+            clearTimeout(window.toastTimer);
+            window.toastTimer = setTimeout(() => toast.style.display = 'none', 2000);
+        }
+
+        function switchPhase(phase) {
+            setupPhase.classList.remove('active');
+            guessPhase.classList.remove('active');
+            resultPhase.classList.remove('active');
+            phase.classList.add('active');
+        }
+
+        function getRange() {
+            const s = rangeStart.value.trim();
+            const e = rangeEnd.value.trim();
+            if (!s || !e) { showToast('请填写完整范围'); return null; }
+            const low = Math.min(Number(s), Number(e));
+            const high = Math.max(Number(s), Number(e));
+            if (isNaN(low) || isNaN(high) || !Number.isInteger(low) || !Number.isInteger(high)) {
+                showToast('请输入整数'); return null;
+            }
+            if (low === high) { showToast('数字不能相同'); return null; }
+            return { low, high };
+        }
+
+        function startGame() {
+            const range = getRange();
+            if (!range) return;
+            rangeLow = range.low;
+            rangeHigh = range.high;
+            secretNumber = Math.floor(Math.random() * (rangeHigh - rangeLow + 1)) + rangeLow;
+            attempts = 0;
+            guessList = [];
+            $('rangeDisplay').textContent = `🔢 范围：[${rangeLow}, ${rangeHigh}]`;
+            $('feedback').textContent = '';
+            $('attemptCount').textContent = '0';
+            $('guessHistory').innerHTML = '';
+            guessInput.value = '';
+            switchPhase(guessPhase);
+            guessInput.focus();
+        }
+
+        function makeGuess() {
+            const val = guessInput.value.trim();
+            if (!val) { showToast('请输入数字'); return; }
+            const num = Number(val);
+            if (!Number.isInteger(num)) { showToast('请输入整数'); guessInput.value = ''; return; }
+            if (num < rangeLow || num > rangeHigh) {
+                showToast(`请猜 ${rangeLow}~${rangeHigh} 之间`);
+                guessInput.value = '';
+                return;
+            }
+            attempts++;
+            guessList.push(num);
+            $('attemptCount').textContent = attempts;
+            const chip = document.createElement('span');
+            chip.textContent = num;
+            $('guessHistory').appendChild(chip);
+
+            if (num > secretNumber) {
+                $('feedback').textContent = '📈 猜大了';
+                $('feedback').style.color = '#f87171';
+                guessInput.value = '';
+            } else if (num < secretNumber) {
+                $('feedback').textContent = '📉 猜小了';
+                $('feedback').style.color = '#60a5fa';
+                guessInput.value = '';
+            } else {
+                $('feedback').textContent = '🎯 猜对了！';
+                $('feedback').style.color = '#4ade80';
+                guessInput.value = '';
+                showResult();
+            }
+        }
+
+        function showResult() {
+            let grade, emoji, gradeClass;
+            if (attempts < 10) { grade = 'A'; emoji = '🏆'; gradeClass = 'grade-A'; }
+            else if (attempts < 20) { grade = 'B'; emoji = '👍'; gradeClass = 'grade-B'; }
+            else { grade = 'C'; emoji = '💪'; gradeClass = 'grade-C'; }
+            $('resultEmoji').textContent = emoji;
+            $('resultGrade').textContent = grade;
+            $('resultGrade').className = 'grade ' + gradeClass;
+            $('resultDetail').innerHTML = `你花了 <strong>${attempts}</strong> 次机会猜中！`;
+            $('resultSecret').textContent = `🎲 秘密数字：${secretNumber}`;
+            switchPhase(resultPhase);
+        }
+
+        function playAgain() {
+            secretNumber = Math.floor(Math.random() * (rangeHigh - rangeLow + 1)) + rangeLow;
+            attempts = 0;
+            guessList = [];
+            $('feedback').textContent = '';
+            $('attemptCount').textContent = '0';
+            $('guessHistory').innerHTML = '';
+            guessInput.value = '';
+            switchPhase(guessPhase);
+            guessInput.focus();
+        }
+
+        function resetToSetup() {
+            switchPhase(setupPhase);
+            rangeStart.focus();
+        }
+
+        // 键盘焦点跳转逻辑
+        rangeStart.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                rangeEnd.focus();
+            }
+        });
+
+        rangeEnd.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                startGame();
+            }
+        });
+
+        // 全局回车键支持
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                if (setupPhase.classList.contains('active')) {
+                    // 如果焦点在rangeStart，则跳转到rangeEnd；否则尝试开始游戏
+                    if (document.activeElement === rangeStart) {
+                        e.preventDefault();
+                        rangeEnd.focus();
+                    } else if (document.activeElement === rangeEnd) {
+                        e.preventDefault();
+                        startGame();
+                    } else {
+                        // 焦点不在输入框时，直接开始游戏（如果范围已填）
+                        e.preventDefault();
+                        startGame();
+                    }
+                } else if (guessPhase.classList.contains('active')) {
+                    e.preventDefault();
+                    makeGuess();
+                } else if (resultPhase.classList.contains('active')) {
+                    e.preventDefault();
+                    playAgain();
+                }
+            }
+        });
+
+        // 初始聚焦第一个输入框
+        rangeStart.focus();
+    </script>
+</body>
+</html>
